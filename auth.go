@@ -2,6 +2,7 @@ package httpDigestAuth
 
 import (
 	"fmt"
+	"time"
 	//"io/ioutil"
 	"crypto/md5"
 	"crypto/rand"
@@ -76,7 +77,7 @@ func (d *DigestHeaders) ApplyAuth(req *http.Request) {
 	if d.Opaque != "" {
 		AuthHeader = fmt.Sprintf(`%s, opaque="%s"`, AuthHeader, d.Opaque)
 	}
-	fmt.Printf("%v\n", AuthHeader)
+	//fmt.Printf("%v\n", AuthHeader)
 	req.Header.Set("Authorization", AuthHeader)
 }
 
@@ -87,6 +88,7 @@ func (d *DigestHeaders) Auth(username string, password string, uri string) (*Dig
 	jar := &myjar{}
 	jar.jar = make(map[string][]*http.Cookie)
 	client.Jar = jar
+	client.Timeout = time.Second * 10
 
 	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
@@ -94,7 +96,8 @@ func (d *DigestHeaders) Auth(username string, password string, uri string) (*Dig
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
+		//log.Fatal(err)
 	}
 	if resp.StatusCode == 401 {
 
@@ -119,6 +122,7 @@ func (d *DigestHeaders) Auth(username string, password string, uri string) (*Dig
 		req, err = http.NewRequest("GET", uri, nil)
 		d.ApplyAuth(req)
 		resp, err = client.Do(req)
+
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -126,6 +130,17 @@ func (d *DigestHeaders) Auth(username string, password string, uri string) (*Dig
 			d = &DigestHeaders{}
 			err = fmt.Errorf("response status code was %v", resp.StatusCode)
 		}
+		/*
+			else {
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					log.Printf("WE FUCKED YO!")
+				} else {
+					log.Printf("resp of good requst is %s", string(body))
+				}
+			}
+		*/
+
 		return d, err
 	}
 	return nil, fmt.Errorf("response status code should have been 401, it was %v", resp.StatusCode)
