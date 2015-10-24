@@ -81,23 +81,26 @@ func (d *DigestHeaders) ApplyAuth(req *http.Request) {
 	req.Header.Set("Authorization", AuthHeader)
 }
 
-// Auth authenticates against a given URI
-func (d *DigestHeaders) Auth(username string, password string, uri string) (*DigestHeaders, error) {
+var client = &http.Client{}
 
-	client := &http.Client{}
+func init() {
 	jar := &myjar{}
 	jar.jar = make(map[string][]*http.Cookie)
 	client.Jar = jar
 	client.Timeout = time.Second * 10
+}
+
+// Auth authenticates against a given URI
+func (d *DigestHeaders) Auth(username string, password string, uri string) (*DigestHeaders, error) {
 
 	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
-		//log.Fatal(err)
 	}
 	if resp.StatusCode == 401 {
 
@@ -122,26 +125,14 @@ func (d *DigestHeaders) Auth(username string, password string, uri string) (*Dig
 		req, err = http.NewRequest("GET", uri, nil)
 		d.ApplyAuth(req)
 		resp, err = client.Do(req)
-
 		if err != nil {
-			log.Printf("error in auth package: %v", err)
-			return d, err
+			return d, fmt.Errorf("http-digest-auth:%v", err)
 		}
+
 		if resp.StatusCode != 200 {
 			d = &DigestHeaders{}
 			err = fmt.Errorf("response status code was %v", resp.StatusCode)
 		}
-		/*
-			else {
-				body, err := ioutil.ReadAll(resp.Body)
-				if err != nil {
-					log.Printf("WE FUCKED YO!")
-				} else {
-					log.Printf("resp of good requst is %s", string(body))
-				}
-			}
-		*/
-
 		return d, err
 	}
 	return nil, fmt.Errorf("response status code should have been 401, it was %v", resp.StatusCode)
